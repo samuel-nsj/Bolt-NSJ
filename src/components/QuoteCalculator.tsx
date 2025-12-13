@@ -67,7 +67,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
   const [selectedPickupLocation, setSelectedPickupLocation] = useState<string>('');
   const [selectedDeliveryLocation, setSelectedDeliveryLocation] = useState<string>('');
   const [selectedSavedItem, setSelectedSavedItem] = useState<string>('');
-  const [itemNameSuggestions, setItemNameSuggestions] = useState<{[key: string]: SavedItem[]}>({});
+  const [itemNameSuggestions, setItemNameSuggestions] = useState<{ [key: string]: SavedItem[] }>({});
   const [focusedItemId, setFocusedItemId] = useState<string | null>(null);
 
   const [pickupPostcode, setPickupPostcode] = useState('');
@@ -190,7 +190,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
 
   const handlePickupLocationChange = (locationId: string) => {
     setSelectedPickupLocation(locationId);
-    const location = savedLocations.find(l => l.id === locationId);
+    const location = savedLocations.find((l) => l.id === locationId);
     if (location) {
       setPickupPostcode(location.postcode);
       setPickupSuburb(location.suburb);
@@ -206,7 +206,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
 
   const handleDeliveryLocationChange = (locationId: string) => {
     setSelectedDeliveryLocation(locationId);
-    const location = savedLocations.find(l => l.id === locationId);
+    const location = savedLocations.find((l) => l.id === locationId);
     if (location) {
       setDeliveryPostcode(location.postcode);
       setDeliverySuburb(location.suburb);
@@ -221,7 +221,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
   };
 
   const handleSavedItemChange = (itemId: string) => {
-    const savedItem = savedItems.find(i => i.id === itemId);
+    const savedItem = savedItems.find((i) => i.id === itemId);
     if (savedItem) {
       const newItem: QuoteItem = {
         id: Date.now().toString(),
@@ -251,7 +251,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
         zones = await searchZonesBySuburb(query);
       }
 
-      const suggestions = zones.map(zone => ({
+      const suggestions = zones.map((zone) => ({
         postcode: String(zone.POSTCODE),
         suburb: zone.SUBURB,
         state: zone.STATE,
@@ -300,6 +300,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
     setPickupState(suggestion.state);
     setPickupDisplay(`${suggestion.suburb.toUpperCase()}, ${suggestion.postcode}, ${suggestion.state}`);
     setShowPickupSuggestions(false);
+    setPickupSuggestions([]);
   };
 
   const selectDeliverySuggestion = (suggestion: PostcodeSuggestion) => {
@@ -308,23 +309,22 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
     setDeliveryState(suggestion.state);
     setDeliveryDisplay(`${suggestion.suburb.toUpperCase()}, ${suggestion.postcode}, ${suggestion.state}`);
     setShowDeliverySuggestions(false);
+    setDeliverySuggestions([]);
   };
 
   const handleItemNameChange = (itemId: string, name: string) => {
     updateItem(itemId, 'name', name);
 
     if (name.trim().length > 0) {
-      const filtered = savedItems.filter(item =>
-        item.name.toLowerCase().includes(name.toLowerCase())
-      );
-      setItemNameSuggestions(prev => ({ ...prev, [itemId]: filtered }));
+      const filtered = savedItems.filter((item) => item.name.toLowerCase().includes(name.toLowerCase()));
+      setItemNameSuggestions((prev) => ({ ...prev, [itemId]: filtered }));
     } else {
-      setItemNameSuggestions(prev => ({ ...prev, [itemId]: [] }));
+      setItemNameSuggestions((prev) => ({ ...prev, [itemId]: [] }));
     }
   };
 
   const selectSavedItemForField = (itemId: string, savedItem: SavedItem) => {
-    const updatedItems = items.map(item => {
+    const updatedItems = items.map((item) => {
       if (item.id === itemId) {
         return {
           ...item,
@@ -334,13 +334,13 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
           length: savedItem.length,
           width: savedItem.width,
           height: savedItem.height,
-          quantity: 1
+          quantity: 1,
         };
       }
       return item;
     });
     setItems(updatedItems);
-    setItemNameSuggestions(prev => ({ ...prev, [itemId]: [] }));
+    setItemNameSuggestions((prev) => ({ ...prev, [itemId]: [] }));
     setFocusedItemId(null);
   };
 
@@ -365,11 +365,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
   };
 
   const updateItem = (id: string, field: keyof QuoteItem, value: string | number) => {
-    setItems(
-      items.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item
-      )
-    );
+    setItems(items.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
   };
 
   const getQuoteFromAPI = async () => {
@@ -384,11 +380,28 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
     }
 
     const invalidItems = items.filter(
-      item => !item.weight || !item.length || !item.width || !item.height
+      (item) =>
+        !item.weight ||
+        !item.length ||
+        !item.width ||
+        !item.height ||
+        item.weight <= 0 ||
+        item.length <= 0 ||
+        item.width <= 0 ||
+        item.height <= 0 ||
+        item.quantity <= 0
     );
 
     if (invalidItems.length > 0) {
-      setError('Please fill in all item dimensions');
+      setError('Please fill in all item dimensions, weight, and ensure quantity > 0');
+      return;
+    }
+
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const apiKey = import.meta.env.VITE_NSJ_API_KEY;
+
+    if (!supabaseUrl || !apiKey) {
+      setError('Missing configuration. Please contact support.');
       return;
     }
 
@@ -403,64 +416,68 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
           address: {
             line1: pickupAddress || pickupSuburb,
             city: pickupSuburb,
+            state: pickupState,
             postCode: pickupPostcode,
-            countryCode: "AU",
+            countryCode: 'AU',
           },
           contact: {
-            name: pickupName || "Shipper",
-            phone: pickupPhone || "0000000000",
-            email: pickupEmail || user?.email || "shipper@example.com",
+            name: pickupName || 'Shipper',
+            phone: pickupPhone || '0000000000',
+            email: pickupEmail || user?.email || 'shipper@example.com',
           },
         },
         consignee: {
           address: {
             line1: deliveryAddress || deliverySuburb,
             city: deliverySuburb,
+            state: deliveryState,
             postCode: deliveryPostcode,
-            countryCode: "AU",
+            countryCode: 'AU',
           },
           contact: {
-            name: deliveryName || "Receiver",
-            phone: deliveryPhone || "0000000000",
-            email: deliveryEmail || user?.email || "receiver@example.com",
+            name: deliveryName || 'Receiver',
+            phone: deliveryPhone || '0000000000',
+            email: deliveryEmail || user?.email || 'receiver@example.com',
           },
         },
         items: items.map((item) => ({
-          quantity: item.quantity,
-          description: item.name || item.itemType || "General Goods",
+          quantity: Math.max(1, item.quantity),
+          description: item.name || item.itemType || 'General Goods',
           weight: {
             value: item.weight,
-            unit: "Kg",
+            unit: 'KG',
           },
           dimensions: {
             length: item.length,
             width: item.width,
             height: item.height,
-            unit: "Cm",
+            unit: 'CM',
           },
         })),
+        pickupIsBusiness,
+        deliveryIsBusiness,
       };
-
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
       const response = await fetch(`${supabaseUrl}/functions/v1/api-quote`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_NSJ_API_KEY}`,
+          'x-api-key': apiKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
       });
 
+      const contentType = response.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = isJson ? await response.json() : { error: await response.text() };
         throw new Error(errorData.error || 'Failed to get quote');
       }
 
-      const data = await response.json();
+      const data = isJson ? await response.json() : null;
 
-      if (!data.rates || data.rates.length === 0) {
+      if (!data?.rates || data.rates.length === 0) {
         setError('No rates available for this route. Please try different locations.');
         return;
       }
@@ -558,8 +575,8 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
     }
   };
 
-  const pickupLocations = savedLocations.filter(l => l.is_pickup);
-  const deliveryLocations = savedLocations.filter(l => l.is_delivery);
+  const pickupLocations = savedLocations.filter((l) => l.is_pickup);
+  const deliveryLocations = savedLocations.filter((l) => l.is_delivery);
 
   return (
     <div className="bg-white rounded-lg shadow-xl border border-gray-100 overflow-hidden">
@@ -609,9 +626,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
 
                 {pickupMode === 'saved' && (
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-2">
-                      Select Location *
-                    </label>
+                    <label className="block text-xs font-medium text-gray-700 mb-2">Select Location *</label>
                     <select
                       value={selectedPickupLocation}
                       onChange={(e) => handlePickupLocationChange(e.target.value)}
@@ -634,9 +649,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
             {pickupMode === 'new' && (
               <>
                 <div ref={pickupRef} className="relative mb-3">
-                  <label className="block text-xs font-medium text-gray-700 mb-2">
-                    Suburb *
-                  </label>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">Suburb *</label>
                   <input
                     type="text"
                     value={pickupDisplay}
@@ -667,9 +680,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-2">
-                    Location Type *
-                  </label>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">Location Type *</label>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -743,9 +754,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
 
                 {deliveryMode === 'saved' && (
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-2">
-                      Select Location *
-                    </label>
+                    <label className="block text-xs font-medium text-gray-700 mb-2">Select Location *</label>
                     <select
                       value={selectedDeliveryLocation}
                       onChange={(e) => handleDeliveryLocationChange(e.target.value)}
@@ -768,9 +777,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
             {deliveryMode === 'new' && (
               <>
                 <div ref={deliveryRef} className="relative mb-3">
-                  <label className="block text-xs font-medium text-gray-700 mb-2">
-                    Suburb *
-                  </label>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">Suburb *</label>
                   <input
                     type="text"
                     value={deliveryDisplay}
@@ -801,9 +808,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-2">
-                    Location Type *
-                  </label>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">Location Type *</label>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -855,9 +860,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
               <div key={item.id} className="relative">
                 <div className="grid grid-cols-[2fr,1.5fr,1fr,1fr,1fr,1fr,0.8fr,auto] gap-2 items-end">
                   <div className="relative">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Item Name
-                    </label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Item Name</label>
                     <input
                       type="text"
                       value={item.name}
@@ -887,9 +890,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Item Type
-                    </label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Item Type</label>
                     <select
                       value={item.itemType}
                       onChange={(e) => updateItem(item.id, 'itemType', e.target.value)}
@@ -898,15 +899,15 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
                     >
                       <option value="">Select...</option>
                       {ITEM_TYPES.map((type) => (
-                        <option key={type} value={type}>{type}</option>
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
                       ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Length cm
-                    </label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Length cm</label>
                     <input
                       type="number"
                       value={item.length || ''}
@@ -920,9 +921,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Width cm
-                    </label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Width cm</label>
                     <input
                       type="number"
                       value={item.width || ''}
@@ -936,9 +935,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Height cm
-                    </label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Height cm</label>
                     <input
                       type="number"
                       value={item.height || ''}
@@ -952,9 +949,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Weight kg
-                    </label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Weight kg</label>
                     <input
                       type="number"
                       value={item.weight || ''}
@@ -968,13 +963,13 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Qty
-                    </label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Qty</label>
                     <input
                       type="number"
                       value={item.quantity || ''}
-                      onChange={(e) => updateItem(item.id, 'quantity', parseInt(e.target.value) || 0)}
+                      onChange={(e) =>
+                        updateItem(item.id, 'quantity', Math.max(1, parseInt(e.target.value) || 0))
+                      }
                       placeholder="1"
                       min="1"
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent"
@@ -1036,7 +1031,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-3 rounded-lg hover:shadow-lg transition font-semibold flex items-center justify-center gap-2 disabled:opacity-50 mt-6"
+            className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-3 rounded-lg hover:shadow-lg transition font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {loading ? (
               <>
