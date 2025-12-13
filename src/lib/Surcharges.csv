@@ -1,0 +1,21 @@
+Surcharge Name,Cost $,Rule
+Signature Delivery,1.75,Couriers to obtain a signature from the receiver
+Standard Delivery,0.8,Couriers will obtain a signature from the receiver when possible
+Priority Local (0-5kg),3,Priority jobs within the same city with a consignment weight between 0-5kg (cubic or deadweight)
+Priority Local (5.01-10kg),6,Priority jobs within the same city with a consignment weight between 5.01-10kg (cubic or deadweight)
+Priority Local (10.01-15kg),9,Priority jobs within the same city with a consignment weight between 10.01-15kg (cubic or deadweight)
+Priority Local (15.01-20kg),12,Priority jobs within the same city with a consignment weight between 15.01-20kg (cubic or deadweight)
+Priority Local (20.01-25kg),15,Priority jobs within the same city with a consignment weight between 20.01-25kg (cubic or deadweight)
+Priority Inter-Region (0-5kg),6,Priority jobs from one city to a different city with a consignment weight between 0-5kg (cubic or deadweight)
+Priority Inter-Region (5.01-10kg),6,Priority jobs from one city to a different city with a consignment weight between 5.01-10kg (cubic or deadweight)
+Priority Inter-Region (10.01-15kg),12,Priority jobs from one city to a different city with a consignment weight between 10.01-15kg (cubic or deadweight)
+Priority Inter-Region (15.01-20kg),18,Priority jobs from one city to a different city with a consignment weight between 15.01-20kg (cubic or deadweight)
+Priority Inter-Region (20.01-25kg),24,Priority jobs from one city to a different city with a consignment weight between 20.01-25kg (cubic or deadweight)
+Pin,12,Couriers to obtain a pin from the receiver to confirm delivery
+Length Fee,15,Applies if any dimension equals or exceeds 1.05m
+Re-Delivery,5,Charged to customer following unsuccessful delivery attempt
+Re-Direction,5,Charged to customer following customer request for new delivery address
+Return To Sender,10,Per unit to be returned to sending address
+FAT Charge,45,Per unit above the maximum courier service threshold (25kg dead weight or 0.16m cubed volume)
+No Manifest,25,Per dropwhen no data received prior to handover
+Misdeclaration,5,Additional to each unit requiring recharge due to under declaration

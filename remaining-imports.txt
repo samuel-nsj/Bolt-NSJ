@@ -1,0 +1,10 @@
+Batches 3-10 ready for import
+Total batches: 8
+Batch 3: 19073 bytes
+Batch 4: 19262 bytes
+Batch 5: 19392 bytes
+Batch 6: 19475 bytes
+Batch 7: 19329 bytes
+Batch 8: 19084 bytes
+Batch 9: 18797 bytes
+Batch 10: 18255 bytes
