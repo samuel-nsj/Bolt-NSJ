@@ -461,7 +461,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
       const response = await fetch(`${supabaseUrl}/functions/v1/api-quote`, {
         method: 'POST',
         headers: {
-          'x-api-key': apiKey,
+          Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
@@ -1031,7 +1031,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-3 rounded-lg hover:shadow-lg transition font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-3 rounded-lg hover:shadow-lg transition font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (
               <>
@@ -1059,7 +1059,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
               type="button"
               onClick={handleSaveQuote}
               disabled={savingQuote || !user}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg hover:shadow-lg transition font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg hover:shadow-lg transition font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-5 h-5" />
               {savingQuote ? 'Saving...' : 'Save Quote'}
@@ -1068,7 +1068,7 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
               type="button"
               onClick={getQuoteFromAPI}
               disabled={loading}
-              className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-3 rounded-lg hover:shadow-lg transition font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+              className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-3 rounded-lg hover:shadow-lg transition font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RotateCcw className="w-5 h-5" />
               {loading ? 'Calculating...' : 'Refresh Rates'}
