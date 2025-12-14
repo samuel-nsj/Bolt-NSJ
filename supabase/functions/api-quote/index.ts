@@ -133,7 +133,7 @@ Deno.serve(async (req: Request) => {
         height == null
       ) {
         return new Response(
-          JSON.stringify({ error: 'Missing required item fields', required: ['weight (or weight.value)', 'length (or dimensions.length)', 'width (or dimensions.width)', 'height (or dimensions.height)'] }),
+          JSON.stringify({ error: 'Missing required item fields', required: ['weight (flat) or weight.value (nested)', 'length (flat) or dimensions.length (nested)', 'width (flat) or dimensions.width (nested)', 'height (flat) or dimensions.height (nested)'] }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
