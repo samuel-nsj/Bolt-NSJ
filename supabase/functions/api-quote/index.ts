@@ -126,7 +126,12 @@ Deno.serve(async (req: Request) => {
     // Validate items have all required dimensions
     for (const item of items) {
       const { weight, length, width, height } = extractItemDimensions(item);
-      if (!weight || !length || !width || !height) {
+      if (
+        weight == null ||
+        length == null ||
+        width == null ||
+        height == null
+      ) {
         return new Response(
           JSON.stringify({ error: 'Missing required item fields', required: ['weight (or weight.value)', 'length (or dimensions.length)', 'width (or dimensions.width)', 'height (or dimensions.height)'] }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
