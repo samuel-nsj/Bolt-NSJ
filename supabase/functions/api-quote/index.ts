@@ -52,10 +52,10 @@ function validatePartyFields(party: Party, partyType: 'shipper' | 'consignee'): 
 
   // Validate address fields (check for both falsy values and empty strings)
   const missingAddressFields: string[] = [];
-  if (!party.address.line1 || party.address.line1.trim() === '') missingAddressFields.push('address.line1');
-  if (!party.address.city || party.address.city.trim() === '') missingAddressFields.push('address.city');
-  if (!party.address.state || party.address.state.trim() === '') missingAddressFields.push('address.state');
-  if (!party.address.postCode || party.address.postCode.trim() === '') missingAddressFields.push('address.postCode');
+  if (!party.address.line1 || (typeof party.address.line1 === 'string' && party.address.line1.trim() === '')) missingAddressFields.push('address.line1');
+  if (!party.address.city || (typeof party.address.city === 'string' && party.address.city.trim() === '')) missingAddressFields.push('address.city');
+  if (!party.address.state || (typeof party.address.state === 'string' && party.address.state.trim() === '')) missingAddressFields.push('address.state');
+  if (!party.address.postCode || (typeof party.address.postCode === 'string' && party.address.postCode.trim() === '')) missingAddressFields.push('address.postCode');
   
   if (missingAddressFields.length > 0) {
     return {
@@ -68,9 +68,9 @@ function validatePartyFields(party: Party, partyType: 'shipper' | 'consignee'): 
 
   // Validate contact fields (check for both falsy values and empty strings)
   const missingContactFields: string[] = [];
-  if (!party.contact.name || party.contact.name.trim() === '') missingContactFields.push('contact.name');
-  if (!party.contact.phone || party.contact.phone.trim() === '') missingContactFields.push('contact.phone');
-  if (!party.contact.email || party.contact.email.trim() === '') missingContactFields.push('contact.email');
+  if (!party.contact.name || (typeof party.contact.name === 'string' && party.contact.name.trim() === '')) missingContactFields.push('contact.name');
+  if (!party.contact.phone || (typeof party.contact.phone === 'string' && party.contact.phone.trim() === '')) missingContactFields.push('contact.phone');
+  if (!party.contact.email || (typeof party.contact.email === 'string' && party.contact.email.trim() === '')) missingContactFields.push('contact.email');
   
   if (missingContactFields.length > 0) {
     return {
