@@ -134,7 +134,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Default countryCode to AU if not provided (use const to avoid mutation)
+    // Create new variables with defaulted countryCode to avoid mutating the original payload
     const shipperCountryCode = shipper.address.countryCode || 'AU';
     const consigneeCountryCode = consignee.address.countryCode || 'AU';
 
