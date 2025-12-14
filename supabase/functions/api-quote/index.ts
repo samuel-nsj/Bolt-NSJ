@@ -73,7 +73,10 @@ Deno.serve(async (req: Request) => {
 
     // Normalize shipper to nested structure (support both flat and nested formats)
     const normalizedShipper = shipper.address && shipper.contact ? {
-      address: shipper.address,
+      address: {
+        ...shipper.address,
+        countryCode: shipper.address.countryCode || 'AU'
+      },
       contact: shipper.contact
     } : {
       address: {
@@ -92,7 +95,10 @@ Deno.serve(async (req: Request) => {
 
     // Normalize consignee to nested structure (support both flat and nested formats)
     const normalizedConsignee = consignee.address && consignee.contact ? {
-      address: consignee.address,
+      address: {
+        ...consignee.address,
+        countryCode: consignee.address.countryCode || 'AU'
+      },
       contact: consignee.contact
     } : {
       address: {
@@ -113,32 +119,70 @@ Deno.serve(async (req: Request) => {
     shipper = normalizedShipper;
     consignee = normalizedConsignee;
 
-    // Validate shipper fields
-    if (!shipper.address.line1 || !shipper.address.city || !shipper.address.state || !shipper.address.postCode) {
+    // Validate shipper fields - check each field with more specific error messages
+    const missingShipperAddressFields: string[] = [];
+    if (!shipper.address.line1) missingShipperAddressFields.push('address.line1');
+    if (!shipper.address.city) missingShipperAddressFields.push('address.city');
+    if (!shipper.address.state) missingShipperAddressFields.push('address.state');
+    if (!shipper.address.postCode) missingShipperAddressFields.push('address.postCode');
+    
+    if (missingShipperAddressFields.length > 0) {
       return new Response(
-        JSON.stringify({ error: 'Missing required shipper address fields', required: ['address.line1', 'address.city', 'address.state', 'address.postCode'] }),
+        JSON.stringify({ 
+          error: 'Missing required shipper address fields', 
+          missing: missingShipperAddressFields,
+          message: `Please provide: ${missingShipperAddressFields.join(', ')}`
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!shipper.contact.name || !shipper.contact.phone || !shipper.contact.email) {
+    const missingShipperContactFields: string[] = [];
+    if (!shipper.contact.name) missingShipperContactFields.push('contact.name');
+    if (!shipper.contact.phone) missingShipperContactFields.push('contact.phone');
+    if (!shipper.contact.email) missingShipperContactFields.push('contact.email');
+    
+    if (missingShipperContactFields.length > 0) {
       return new Response(
-        JSON.stringify({ error: 'Missing required shipper contact fields', required: ['contact.name', 'contact.phone', 'contact.email'] }),
+        JSON.stringify({ 
+          error: 'Missing required shipper contact fields', 
+          missing: missingShipperContactFields,
+          message: `Please provide: ${missingShipperContactFields.join(', ')}`
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Validate consignee fields
-    if (!consignee.address.line1 || !consignee.address.city || !consignee.address.state || !consignee.address.postCode) {
+    // Validate consignee fields - check each field with more specific error messages
+    const missingConsigneeAddressFields: string[] = [];
+    if (!consignee.address.line1) missingConsigneeAddressFields.push('address.line1');
+    if (!consignee.address.city) missingConsigneeAddressFields.push('address.city');
+    if (!consignee.address.state) missingConsigneeAddressFields.push('address.state');
+    if (!consignee.address.postCode) missingConsigneeAddressFields.push('address.postCode');
+    
+    if (missingConsigneeAddressFields.length > 0) {
       return new Response(
-        JSON.stringify({ error: 'Missing required consignee address fields', required: ['address.line1', 'address.city', 'address.state', 'address.postCode'] }),
+        JSON.stringify({ 
+          error: 'Missing required consignee address fields', 
+          missing: missingConsigneeAddressFields,
+          message: `Please provide: ${missingConsigneeAddressFields.join(', ')}`
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!consignee.contact.name || !consignee.contact.phone || !consignee.contact.email) {
+    const missingConsigneeContactFields: string[] = [];
+    if (!consignee.contact.name) missingConsigneeContactFields.push('contact.name');
+    if (!consignee.contact.phone) missingConsigneeContactFields.push('contact.phone');
+    if (!consignee.contact.email) missingConsigneeContactFields.push('contact.email');
+    
+    if (missingConsigneeContactFields.length > 0) {
       return new Response(
-        JSON.stringify({ error: 'Missing required consignee contact fields', required: ['contact.name', 'contact.phone', 'contact.email'] }),
+        JSON.stringify({ 
+          error: 'Missing required consignee contact fields', 
+          missing: missingConsigneeContactFields,
+          message: `Please provide: ${missingConsigneeContactFields.join(', ')}`
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
