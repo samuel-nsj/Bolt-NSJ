@@ -50,12 +50,12 @@ function validatePartyFields(party: Party, partyType: 'shipper' | 'consignee'): 
     };
   }
 
-  // Validate address fields
+  // Validate address fields (check for both falsy values and empty strings)
   const missingAddressFields: string[] = [];
-  if (!party.address.line1) missingAddressFields.push('address.line1');
-  if (!party.address.city) missingAddressFields.push('address.city');
-  if (!party.address.state) missingAddressFields.push('address.state');
-  if (!party.address.postCode) missingAddressFields.push('address.postCode');
+  if (!party.address.line1 || party.address.line1.trim() === '') missingAddressFields.push('address.line1');
+  if (!party.address.city || party.address.city.trim() === '') missingAddressFields.push('address.city');
+  if (!party.address.state || party.address.state.trim() === '') missingAddressFields.push('address.state');
+  if (!party.address.postCode || party.address.postCode.trim() === '') missingAddressFields.push('address.postCode');
   
   if (missingAddressFields.length > 0) {
     return {
@@ -66,11 +66,11 @@ function validatePartyFields(party: Party, partyType: 'shipper' | 'consignee'): 
     };
   }
 
-  // Validate contact fields
+  // Validate contact fields (check for both falsy values and empty strings)
   const missingContactFields: string[] = [];
-  if (!party.contact.name) missingContactFields.push('contact.name');
-  if (!party.contact.phone) missingContactFields.push('contact.phone');
-  if (!party.contact.email) missingContactFields.push('contact.email');
+  if (!party.contact.name || party.contact.name.trim() === '') missingContactFields.push('contact.name');
+  if (!party.contact.phone || party.contact.phone.trim() === '') missingContactFields.push('contact.phone');
+  if (!party.contact.email || party.contact.email.trim() === '') missingContactFields.push('contact.email');
   
   if (missingContactFields.length > 0) {
     return {
@@ -152,7 +152,7 @@ Deno.serve(async (req: Request) => {
       contact: shipper.contact
     } : {
       address: {
-        line1: shipper.address || '',
+        line1: shipper.line1 || shipper.address1 || '',
         city: shipper.city || '',
         state: shipper.state || '',
         postCode: shipper.postcode || shipper.postCode || '',
@@ -174,7 +174,7 @@ Deno.serve(async (req: Request) => {
       contact: consignee.contact
     } : {
       address: {
-        line1: consignee.address || '',
+        line1: consignee.line1 || consignee.address1 || '',
         city: consignee.city || '',
         state: consignee.state || '',
         postCode: consignee.postcode || consignee.postCode || '',
