@@ -62,10 +62,33 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({
           error: 'Missing required fields',
           required: {
-            shipper: { address: { line1: 'string', city: 'string', state: 'string', postCode: 'string', countryCode: 'string (optional, defaults to AU)' }, contact: { name: 'string', phone: 'string', email: 'string' } },
-            consignee: { address: { line1: 'string', city: 'string', state: 'string', postCode: 'string', countryCode: 'string (optional, defaults to AU)' }, contact: { name: 'string', phone: 'string', email: 'string' } },
-            items: [{ weight: 'number', length: 'number', width: 'number', height: 'number', quantity: 'number (optional)', description: 'string (optional)' }]
-          }
+            shipper: {
+              address: {
+                line1: 'string',
+                city: 'string',
+                state: 'string',
+                postCode: 'string',
+                countryCode: 'string (optional, defaults to AU)',
+              },
+              contact: { name: 'string', phone: 'string', email: 'string' },
+            },
+            consignee: {
+              address: {
+                line1: 'string',
+                city: 'string',
+                state: 'string',
+                postCode: 'string',
+                countryCode: 'string (optional, defaults to AU)',
+              },
+              contact: { name: 'string', phone: 'string', email: 'string' },
+            },
+            items: [{
+              weight: { value: 'number', unit: 'string' },
+              dimensions: { length: 'number', width: 'number', height: 'number', unit: 'string' },
+              quantity: 'number (optional)',
+              description: 'string (optional)',
+            }],
+          },
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -119,6 +142,9 @@ Deno.serve(async (req: Request) => {
     const shipperCountryCode = shipper.address.countryCode || 'AU';
     const consigneeCountryCode = consignee.address.countryCode || 'AU';
 
+    // Validate items structure
+    // Note: Supports both nested structure from frontend (weight.value, dimensions.length)
+    // and flat structure from legacy API calls (weight, length) for backward compatibility
     for (const item of items) {
       const weight = item.weight?.value || item.weight;
       const length = item.dimensions?.length || item.length;
@@ -127,7 +153,10 @@ Deno.serve(async (req: Request) => {
       
       if (!weight || !length || !width || !height) {
         return new Response(
-          JSON.stringify({ error: 'Missing required item fields', required: ['weight', 'dimensions (length, width, height)'] }),
+          JSON.stringify({
+            error: 'Missing required item fields',
+            required: ['weight', 'length', 'width', 'height'],
+          }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -170,14 +199,26 @@ Deno.serve(async (req: Request) => {
         email: consignee.contact.email,
         countryCode: consigneeCountryCode,
       },
-      items: items.map((item: any) => ({
-        weight: parseFloat(item.weight?.value || item.weight),
-        length: parseFloat(item.dimensions?.length || item.length),
-        width: parseFloat(item.dimensions?.width || item.width),
-        height: parseFloat(item.dimensions?.height || item.height),
-        quantity: item.quantity ? parseInt(item.quantity) : 1,
-        description: item.description,
-      })),
+      items: items.map((item: any) => {
+        const weight = parseFloat(item.weight?.value || item.weight);
+        const length = parseFloat(item.dimensions?.length || item.length);
+        const width = parseFloat(item.dimensions?.width || item.width);
+        const height = parseFloat(item.dimensions?.height || item.height);
+        
+        // Validate parsed values to prevent NaN
+        if (isNaN(weight) || isNaN(length) || isNaN(width) || isNaN(height)) {
+          throw new Error('Invalid numeric values in item dimensions or weight');
+        }
+        
+        return {
+          weight,
+          length,
+          width,
+          height,
+          quantity: item.quantity ? parseInt(item.quantity) : 1,
+          description: item.description,
+        };
+      }),
     });
 
     if (!quoteResult.success || !quoteResult.rates) {
