@@ -379,6 +379,11 @@ export default function QuoteCalculator({ onGetQuote, onBookJob, initialQuoteDat
       return;
     }
 
+    if (!pickupState || !deliveryState) {
+      setError('Please select valid locations from the suggestions to ensure state is populated');
+      return;
+    }
+
     const invalidItems = items.filter(
       (item) =>
         !item.weight ||
