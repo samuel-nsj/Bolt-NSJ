@@ -12,6 +12,42 @@ const corsHeaders = {
 
 const rateLimiter = new RateLimiter(60000, 50);
 
+// Helper function to validate address and contact fields
+function validatePartyFields(party: any, partyType: 'shipper' | 'consignee'): { valid: boolean; error?: string; missing?: string[]; message?: string } {
+  // Validate address fields
+  const missingAddressFields: string[] = [];
+  if (!party.address.line1) missingAddressFields.push('address.line1');
+  if (!party.address.city) missingAddressFields.push('address.city');
+  if (!party.address.state) missingAddressFields.push('address.state');
+  if (!party.address.postCode) missingAddressFields.push('address.postCode');
+  
+  if (missingAddressFields.length > 0) {
+    return {
+      valid: false,
+      error: `Missing required ${partyType} address fields`,
+      missing: missingAddressFields,
+      message: `Please provide: ${missingAddressFields.join(', ')}`
+    };
+  }
+
+  // Validate contact fields
+  const missingContactFields: string[] = [];
+  if (!party.contact.name) missingContactFields.push('contact.name');
+  if (!party.contact.phone) missingContactFields.push('contact.phone');
+  if (!party.contact.email) missingContactFields.push('contact.email');
+  
+  if (missingContactFields.length > 0) {
+    return {
+      valid: false,
+      error: `Missing required ${partyType} contact fields`,
+      missing: missingContactFields,
+      message: `Please provide: ${missingContactFields.join(', ')}`
+    };
+  }
+
+  return { valid: true };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -119,69 +155,27 @@ Deno.serve(async (req: Request) => {
     shipper = normalizedShipper;
     consignee = normalizedConsignee;
 
-    // Validate shipper fields - check each field with more specific error messages
-    const missingShipperAddressFields: string[] = [];
-    if (!shipper.address.line1) missingShipperAddressFields.push('address.line1');
-    if (!shipper.address.city) missingShipperAddressFields.push('address.city');
-    if (!shipper.address.state) missingShipperAddressFields.push('address.state');
-    if (!shipper.address.postCode) missingShipperAddressFields.push('address.postCode');
-    
-    if (missingShipperAddressFields.length > 0) {
+    // Validate shipper fields
+    const shipperValidation = validatePartyFields(shipper, 'shipper');
+    if (!shipperValidation.valid) {
       return new Response(
         JSON.stringify({ 
-          error: 'Missing required shipper address fields', 
-          missing: missingShipperAddressFields,
-          message: `Please provide: ${missingShipperAddressFields.join(', ')}`
+          error: shipperValidation.error,
+          missing: shipperValidation.missing,
+          message: shipperValidation.message
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const missingShipperContactFields: string[] = [];
-    if (!shipper.contact.name) missingShipperContactFields.push('contact.name');
-    if (!shipper.contact.phone) missingShipperContactFields.push('contact.phone');
-    if (!shipper.contact.email) missingShipperContactFields.push('contact.email');
-    
-    if (missingShipperContactFields.length > 0) {
+    // Validate consignee fields
+    const consigneeValidation = validatePartyFields(consignee, 'consignee');
+    if (!consigneeValidation.valid) {
       return new Response(
         JSON.stringify({ 
-          error: 'Missing required shipper contact fields', 
-          missing: missingShipperContactFields,
-          message: `Please provide: ${missingShipperContactFields.join(', ')}`
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Validate consignee fields - check each field with more specific error messages
-    const missingConsigneeAddressFields: string[] = [];
-    if (!consignee.address.line1) missingConsigneeAddressFields.push('address.line1');
-    if (!consignee.address.city) missingConsigneeAddressFields.push('address.city');
-    if (!consignee.address.state) missingConsigneeAddressFields.push('address.state');
-    if (!consignee.address.postCode) missingConsigneeAddressFields.push('address.postCode');
-    
-    if (missingConsigneeAddressFields.length > 0) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Missing required consignee address fields', 
-          missing: missingConsigneeAddressFields,
-          message: `Please provide: ${missingConsigneeAddressFields.join(', ')}`
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const missingConsigneeContactFields: string[] = [];
-    if (!consignee.contact.name) missingConsigneeContactFields.push('contact.name');
-    if (!consignee.contact.phone) missingConsigneeContactFields.push('contact.phone');
-    if (!consignee.contact.email) missingConsigneeContactFields.push('contact.email');
-    
-    if (missingConsigneeContactFields.length > 0) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'Missing required consignee contact fields', 
-          missing: missingConsigneeContactFields,
-          message: `Please provide: ${missingConsigneeContactFields.join(', ')}`
+          error: consigneeValidation.error,
+          missing: consigneeValidation.missing,
+          message: consigneeValidation.message
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
