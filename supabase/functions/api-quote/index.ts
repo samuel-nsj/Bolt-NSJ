@@ -12,8 +12,44 @@ const corsHeaders = {
 
 const rateLimiter = new RateLimiter(60000, 50);
 
+// Type definitions for validation
+interface PartyAddress {
+  line1?: string;
+  city?: string;
+  state?: string;
+  postCode?: string;
+  countryCode?: string;
+}
+
+interface PartyContact {
+  name?: string;
+  phone?: string;
+  email?: string;
+}
+
+interface Party {
+  address?: PartyAddress;
+  contact?: PartyContact;
+}
+
+interface ValidationResult {
+  valid: boolean;
+  error?: string;
+  missing?: string[];
+  message?: string;
+}
+
 // Helper function to validate address and contact fields
-function validatePartyFields(party: any, partyType: 'shipper' | 'consignee'): { valid: boolean; error?: string; missing?: string[]; message?: string } {
+function validatePartyFields(party: Party, partyType: 'shipper' | 'consignee'): ValidationResult {
+  // Check if party has address and contact objects
+  if (!party.address || !party.contact) {
+    return {
+      valid: false,
+      error: `Missing ${partyType} structure`,
+      message: `${partyType} must have both address and contact objects`
+    };
+  }
+
   // Validate address fields
   const missingAddressFields: string[] = [];
   if (!party.address.line1) missingAddressFields.push('address.line1');
