@@ -115,16 +115,17 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Default countryCode to AU if not provided
-    shipper.address.countryCode = shipper.address.countryCode || 'AU';
-    consignee.address.countryCode = consignee.address.countryCode || 'AU';
+    // Helper function to extract item dimensions
+    const extractItemDimensions = (item: any) => ({
+      weight: item.weight?.value || item.weight,
+      length: item.dimensions?.length || item.length,
+      width: item.dimensions?.width || item.width,
+      height: item.dimensions?.height || item.height,
+    });
 
+    // Validate items have all required dimensions
     for (const item of items) {
-      const weight = item.weight?.value || item.weight;
-      const length = item.dimensions?.length || item.length;
-      const width = item.dimensions?.width || item.width;
-      const height = item.dimensions?.height || item.height;
-
+      const { weight, length, width, height } = extractItemDimensions(item);
       if (!weight || !length || !width || !height) {
         return new Response(
           JSON.stringify({ error: 'Missing required item fields', required: ['weight (or weight.value)', 'length (or dimensions.length)', 'width (or dimensions.width)', 'height (or dimensions.height)'] }),
@@ -132,6 +133,10 @@ Deno.serve(async (req: Request) => {
         );
       }
     }
+
+    // Default countryCode to AU if not provided (use const to avoid mutation)
+    const shipperCountryCode = shipper.address.countryCode || 'AU';
+    const consigneeCountryCode = consignee.address.countryCode || 'AU';
 
     const { data: customer } = await supabase
       .from('api_customers')
@@ -158,7 +163,7 @@ Deno.serve(async (req: Request) => {
         postcode: shipper.address.postCode,
         phone: shipper.contact.phone,
         email: shipper.contact.email,
-        countryCode: shipper.address.countryCode,
+        countryCode: shipperCountryCode,
       },
       consignee: {
         name: consignee.contact.name,
@@ -168,16 +173,19 @@ Deno.serve(async (req: Request) => {
         postcode: consignee.address.postCode,
         phone: consignee.contact.phone,
         email: consignee.contact.email,
-        countryCode: consignee.address.countryCode,
+        countryCode: consigneeCountryCode,
       },
-      items: items.map((item: any) => ({
-        weight: parseFloat(item.weight?.value || item.weight),
-        length: parseFloat(item.dimensions?.length || item.length),
-        width: parseFloat(item.dimensions?.width || item.width),
-        height: parseFloat(item.dimensions?.height || item.height),
-        quantity: item.quantity ? parseInt(item.quantity) : 1,
-        description: item.description,
-      })),
+      items: items.map((item: any) => {
+        const dims = extractItemDimensions(item);
+        return {
+          weight: parseFloat(dims.weight as any),
+          length: parseFloat(dims.length as any),
+          width: parseFloat(dims.width as any),
+          height: parseFloat(dims.height as any),
+          quantity: item.quantity ? parseInt(item.quantity) : 1,
+          description: item.description,
+        };
+      }),
     });
 
     if (!quoteResult.success || !quoteResult.rates) {
@@ -221,7 +229,7 @@ Deno.serve(async (req: Request) => {
 
     const firstRate = quotesWithMarkup[0];
 
-    const firstItem = items[0];
+    const firstItemDims = extractItemDimensions(items[0]);
     const { data: quoteRecord } = await supabase
       .from('freight_quotes')
       .insert({
@@ -234,11 +242,11 @@ Deno.serve(async (req: Request) => {
         origin_postcode: shipper.address.postCode,
         destination_suburb: consignee.address.city,
         destination_postcode: consignee.address.postCode,
-        weight: firstItem.weight?.value || firstItem.weight,
+        weight: firstItemDims.weight,
         dimensions: { 
-          length: firstItem.dimensions?.length || firstItem.length, 
-          width: firstItem.dimensions?.width || firstItem.width, 
-          height: firstItem.dimensions?.height || firstItem.height 
+          length: firstItemDims.length, 
+          width: firstItemDims.width, 
+          height: firstItemDims.height 
         },
         carrier_response: quoteResult.rawResponse,
       })
