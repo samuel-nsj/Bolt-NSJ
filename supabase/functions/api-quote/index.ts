@@ -77,7 +77,7 @@ Deno.serve(async (req: Request) => {
       contact: shipper.contact
     } : {
       address: {
-        line1: shipper.address || shipper.addressLine1 || '',
+        line1: shipper.address || '',
         city: shipper.city || '',
         state: shipper.state || '',
         postCode: shipper.postcode || shipper.postCode || '',
@@ -96,7 +96,7 @@ Deno.serve(async (req: Request) => {
       contact: consignee.contact
     } : {
       address: {
-        line1: consignee.address || consignee.addressLine1 || '',
+        line1: consignee.address || '',
         city: consignee.city || '',
         state: consignee.state || '',
         postCode: consignee.postcode || consignee.postCode || '',
