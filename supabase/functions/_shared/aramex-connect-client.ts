@@ -37,6 +37,7 @@ export interface QuoteRequest {
     name: string;
     address: string;
     city: string;
+    state?: string;
     postcode: string;
     phone: string;
     email: string;
@@ -46,6 +47,7 @@ export interface QuoteRequest {
     name: string;
     address: string;
     city: string;
+    state?: string;
     postcode: string;
     phone: string;
     email: string;
@@ -67,6 +69,7 @@ export interface BookingRequest {
     name: string;
     address: string;
     city: string;
+    state?: string;
     postcode: string;
     phone: string;
     email: string;
@@ -76,6 +79,7 @@ export interface BookingRequest {
     name: string;
     address: string;
     city: string;
+    state?: string;
     postcode: string;
     phone: string;
     email: string;
@@ -153,9 +157,6 @@ export class AramexConnectClient {
     }
   }
 
-  /**
-   * Get OAuth2 access token (scope: ac-api-au)
-   */
   private async getAccessToken(): Promise<string> {
     const now = Date.now();
     if (this.accessToken && now < this.tokenExpiry) {
@@ -193,9 +194,6 @@ export class AramexConnectClient {
     return this.accessToken;
   }
 
-  /**
-   * Authenticated request helper
-   */
   private async makeAuthenticatedRequest(method: string, endpoint: string, body?: any): Promise<any> {
     const token = await this.getAccessToken();
     const url = `${this.config.baseUrl}${endpoint}`;
@@ -239,6 +237,7 @@ export class AramexConnectClient {
           address: {
             line1: request.shipper.address,
             city: request.shipper.city,
+            state: request.shipper.state,
             postCode: request.shipper.postcode,
             countryCode: request.shipper.countryCode || this.config.countryCode,
           },
@@ -252,6 +251,7 @@ export class AramexConnectClient {
           address: {
             line1: request.consignee.address,
             city: request.consignee.city,
+            state: request.consignee.state,
             postCode: request.consignee.postcode,
             countryCode: request.consignee.countryCode || this.config.countryCode,
           },
@@ -307,6 +307,7 @@ export class AramexConnectClient {
               address: {
                 line1: request.shipper.address,
                 city: request.shipper.city,
+                state: request.shipper.state,
                 postCode: request.shipper.postcode,
                 countryCode: request.shipper.countryCode || this.config.countryCode,
               },
@@ -320,6 +321,7 @@ export class AramexConnectClient {
               address: {
                 line1: request.consignee.address,
                 city: request.consignee.city,
+                state: request.consignee.state,
                 postCode: request.consignee.postcode,
                 countryCode: request.consignee.countryCode || this.config.countryCode,
               },
