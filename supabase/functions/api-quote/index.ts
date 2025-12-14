@@ -242,7 +242,7 @@ Deno.serve(async (req: Request) => {
         origin_postcode: shipper.address.postCode,
         destination_suburb: consignee.address.city,
         destination_postcode: consignee.address.postCode,
-        weight: firstItemDims.weight,
+        weight: parseFloat(firstItemDims.weight?.value ?? firstItemDims.weight),
         dimensions: { 
           length: firstItemDims.length, 
           width: firstItemDims.width, 
