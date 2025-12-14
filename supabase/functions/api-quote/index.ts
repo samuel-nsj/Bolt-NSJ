@@ -55,38 +55,102 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = await req.json();
-    const { shipper, consignee, items } = body;
+    let { shipper, consignee, items } = body;
 
     if (!shipper || !consignee || !items || !Array.isArray(items) || items.length === 0) {
       return new Response(
         JSON.stringify({
           error: 'Missing required fields',
           required: {
-            shipper: { name: 'string', address: 'string', city: 'string', postcode: 'string', phone: 'string', email: 'string' },
-            consignee: { name: 'string', address: 'string', city: 'string', postcode: 'string', phone: 'string', email: 'string' },
-            items: [{ weight: 'number', length: 'number', width: 'number', height: 'number', quantity: 'number (optional)', description: 'string (optional)' }]
+            shipper: { address: { line1: 'string', city: 'string', state: 'string', postCode: 'string', countryCode: 'string' }, contact: { name: 'string', phone: 'string', email: 'string' } },
+            consignee: { address: { line1: 'string', city: 'string', state: 'string', postCode: 'string', countryCode: 'string' }, contact: { name: 'string', phone: 'string', email: 'string' } },
+            items: [{ weight: { value: 'number', unit: 'string' }, dimensions: { length: 'number', width: 'number', height: 'number', unit: 'string' }, quantity: 'number (optional)', description: 'string (optional)' }]
           }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!shipper.name || !shipper.address || !shipper.city || !shipper.postcode || !shipper.phone || !shipper.email) {
+    // Normalize shipper to nested structure (support both flat and nested formats)
+    const normalizedShipper = shipper.address && shipper.contact ? {
+      address: shipper.address,
+      contact: shipper.contact
+    } : {
+      address: {
+        line1: shipper.address || '',
+        city: shipper.city || '',
+        state: shipper.state || '',
+        postCode: shipper.postcode || shipper.postCode || '',
+        countryCode: shipper.countryCode || 'AU'
+      },
+      contact: {
+        name: shipper.name || '',
+        phone: shipper.phone || '',
+        email: shipper.email || ''
+      }
+    };
+
+    // Normalize consignee to nested structure (support both flat and nested formats)
+    const normalizedConsignee = consignee.address && consignee.contact ? {
+      address: consignee.address,
+      contact: consignee.contact
+    } : {
+      address: {
+        line1: consignee.address || '',
+        city: consignee.city || '',
+        state: consignee.state || '',
+        postCode: consignee.postcode || consignee.postCode || '',
+        countryCode: consignee.countryCode || 'AU'
+      },
+      contact: {
+        name: consignee.name || '',
+        phone: consignee.phone || '',
+        email: consignee.email || ''
+      }
+    };
+
+    // Use normalized structures
+    shipper = normalizedShipper;
+    consignee = normalizedConsignee;
+
+    // Validate shipper fields
+    if (!shipper.address.line1 || !shipper.address.city || !shipper.address.state || !shipper.address.postCode) {
       return new Response(
-        JSON.stringify({ error: 'Missing required shipper fields', required: ['name', 'address', 'city', 'postcode', 'phone', 'email'] }),
+        JSON.stringify({ error: 'Missing required shipper address fields', required: ['address.line1', 'address.city', 'address.state', 'address.postCode'] }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    if (!consignee.name || !consignee.address || !consignee.city || !consignee.postcode || !consignee.phone || !consignee.email) {
+    if (!shipper.contact.name || !shipper.contact.phone || !shipper.contact.email) {
       return new Response(
-        JSON.stringify({ error: 'Missing required consignee fields', required: ['name', 'address', 'city', 'postcode', 'phone', 'email'] }),
+        JSON.stringify({ error: 'Missing required shipper contact fields', required: ['contact.name', 'contact.phone', 'contact.email'] }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    // Validate consignee fields
+    if (!consignee.address.line1 || !consignee.address.city || !consignee.address.state || !consignee.address.postCode) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required consignee address fields', required: ['address.line1', 'address.city', 'address.state', 'address.postCode'] }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!consignee.contact.name || !consignee.contact.phone || !consignee.contact.email) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required consignee contact fields', required: ['contact.name', 'contact.phone', 'contact.email'] }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate items (support both nested and flat formats)
     for (const item of items) {
-      if (!item.weight || !item.length || !item.width || !item.height) {
+      const weight = item.weight?.value || item.weight;
+      const length = item.dimensions?.length || item.length;
+      const width = item.dimensions?.width || item.width;
+      const height = item.dimensions?.height || item.height;
+      
+      if (!weight || !length || !width || !height) {
         return new Response(
           JSON.stringify({ error: 'Missing required item fields', required: ['weight', 'length', 'width', 'height'] }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -112,28 +176,30 @@ Deno.serve(async (req: Request) => {
 
     const quoteResult = await aramexClient.getRates({
       shipper: {
-        name: shipper.name,
-        address: shipper.address,
-        city: shipper.city,
-        postcode: shipper.postcode,
-        phone: shipper.phone,
-        email: shipper.email,
-        countryCode: shipper.countryCode,
+        name: shipper.contact.name,
+        address: shipper.address.line1,
+        city: shipper.address.city,
+        state: shipper.address.state,
+        postcode: shipper.address.postCode,
+        phone: shipper.contact.phone,
+        email: shipper.contact.email,
+        countryCode: shipper.address.countryCode || 'AU',
       },
       consignee: {
-        name: consignee.name,
-        address: consignee.address,
-        city: consignee.city,
-        postcode: consignee.postcode,
-        phone: consignee.phone,
-        email: consignee.email,
-        countryCode: consignee.countryCode,
+        name: consignee.contact.name,
+        address: consignee.address.line1,
+        city: consignee.address.city,
+        state: consignee.address.state,
+        postcode: consignee.address.postCode,
+        phone: consignee.contact.phone,
+        email: consignee.contact.email,
+        countryCode: consignee.address.countryCode || 'AU',
       },
       items: items.map((item: any) => ({
-        weight: parseFloat(item.weight),
-        length: parseFloat(item.length),
-        width: parseFloat(item.width),
-        height: parseFloat(item.height),
+        weight: parseFloat(item.weight?.value || item.weight),
+        length: parseFloat(item.dimensions?.length || item.length),
+        width: parseFloat(item.dimensions?.width || item.width),
+        height: parseFloat(item.dimensions?.height || item.height),
         quantity: item.quantity ? parseInt(item.quantity) : 1,
         description: item.description,
       })),
@@ -188,12 +254,16 @@ Deno.serve(async (req: Request) => {
         base_cost: firstRate.baseCost,
         markup_amount: firstRate.markupAmount,
         total_cost: firstRate.totalCost,
-        origin_suburb: shipper.city,
-        origin_postcode: shipper.postcode,
-        destination_suburb: consignee.city,
-        destination_postcode: consignee.postcode,
-        weight: items[0].weight,
-        dimensions: { length: items[0].length, width: items[0].width, height: items[0].height },
+        origin_suburb: shipper.address.city,
+        origin_postcode: shipper.address.postCode,
+        destination_suburb: consignee.address.city,
+        destination_postcode: consignee.address.postCode,
+        weight: items[0].weight?.value || items[0].weight,
+        dimensions: { 
+          length: items[0].dimensions?.length || items[0].length, 
+          width: items[0].dimensions?.width || items[0].width, 
+          height: items[0].dimensions?.height || items[0].height 
+        },
         carrier_response: quoteResult.rawResponse,
       })
       .select()
