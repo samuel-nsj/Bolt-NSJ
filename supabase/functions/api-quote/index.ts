@@ -12,6 +12,78 @@ const corsHeaders = {
 
 const rateLimiter = new RateLimiter(60000, 50);
 
+// Type definitions for validation
+interface PartyAddress {
+  line1?: string;
+  city?: string;
+  state?: string;
+  postCode?: string;
+  countryCode?: string;
+}
+
+interface PartyContact {
+  name?: string;
+  phone?: string;
+  email?: string;
+}
+
+interface Party {
+  address?: PartyAddress;
+  contact?: PartyContact;
+}
+
+interface ValidationResult {
+  valid: boolean;
+  error?: string;
+  missing?: string[];
+  message?: string;
+}
+
+// Helper function to validate address and contact fields
+function validatePartyFields(party: Party, partyType: 'shipper' | 'consignee'): ValidationResult {
+  // Check if party has address and contact objects
+  if (!party.address || !party.contact) {
+    return {
+      valid: false,
+      error: `Missing ${partyType} structure`,
+      message: `${partyType} must have both address and contact objects`
+    };
+  }
+
+  // Validate address fields (check for both falsy values and empty strings)
+  const missingAddressFields: string[] = [];
+  if (!party.address.line1 || (typeof party.address.line1 === 'string' && party.address.line1.trim() === '')) missingAddressFields.push('address.line1');
+  if (!party.address.city || (typeof party.address.city === 'string' && party.address.city.trim() === '')) missingAddressFields.push('address.city');
+  if (!party.address.state || (typeof party.address.state === 'string' && party.address.state.trim() === '')) missingAddressFields.push('address.state');
+  if (!party.address.postCode || (typeof party.address.postCode === 'string' && party.address.postCode.trim() === '')) missingAddressFields.push('address.postCode');
+  
+  if (missingAddressFields.length > 0) {
+    return {
+      valid: false,
+      error: `Missing required ${partyType} address fields`,
+      missing: missingAddressFields,
+      message: `Please provide: ${missingAddressFields.join(', ')}`
+    };
+  }
+
+  // Validate contact fields (check for both falsy values and empty strings)
+  const missingContactFields: string[] = [];
+  if (!party.contact.name || (typeof party.contact.name === 'string' && party.contact.name.trim() === '')) missingContactFields.push('contact.name');
+  if (!party.contact.phone || (typeof party.contact.phone === 'string' && party.contact.phone.trim() === '')) missingContactFields.push('contact.phone');
+  if (!party.contact.email || (typeof party.contact.email === 'string' && party.contact.email.trim() === '')) missingContactFields.push('contact.email');
+  
+  if (missingContactFields.length > 0) {
+    return {
+      valid: false,
+      error: `Missing required ${partyType} contact fields`,
+      missing: missingContactFields,
+      message: `Please provide: ${missingContactFields.join(', ')}`
+    };
+  }
+
+  return { valid: true };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -73,11 +145,14 @@ Deno.serve(async (req: Request) => {
 
     // Normalize shipper to nested structure (support both flat and nested formats)
     const normalizedShipper = shipper.address && shipper.contact ? {
-      address: shipper.address,
+      address: {
+        ...shipper.address,
+        countryCode: shipper.address.countryCode || 'AU'
+      },
       contact: shipper.contact
     } : {
       address: {
-        line1: shipper.address || '',
+        line1: shipper.line1 || shipper.address1 || '',
         city: shipper.city || '',
         state: shipper.state || '',
         postCode: shipper.postcode || shipper.postCode || '',
@@ -92,11 +167,14 @@ Deno.serve(async (req: Request) => {
 
     // Normalize consignee to nested structure (support both flat and nested formats)
     const normalizedConsignee = consignee.address && consignee.contact ? {
-      address: consignee.address,
+      address: {
+        ...consignee.address,
+        countryCode: consignee.address.countryCode || 'AU'
+      },
       contact: consignee.contact
     } : {
       address: {
-        line1: consignee.address || '',
+        line1: consignee.line1 || consignee.address1 || '',
         city: consignee.city || '',
         state: consignee.state || '',
         postCode: consignee.postcode || consignee.postCode || '',
@@ -114,31 +192,27 @@ Deno.serve(async (req: Request) => {
     consignee = normalizedConsignee;
 
     // Validate shipper fields
-    if (!shipper.address.line1 || !shipper.address.city || !shipper.address.state || !shipper.address.postCode) {
+    const shipperValidation = validatePartyFields(shipper, 'shipper');
+    if (!shipperValidation.valid) {
       return new Response(
-        JSON.stringify({ error: 'Missing required shipper address fields', required: ['address.line1', 'address.city', 'address.state', 'address.postCode'] }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (!shipper.contact.name || !shipper.contact.phone || !shipper.contact.email) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required shipper contact fields', required: ['contact.name', 'contact.phone', 'contact.email'] }),
+        JSON.stringify({ 
+          error: shipperValidation.error,
+          missing: shipperValidation.missing,
+          message: shipperValidation.message
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Validate consignee fields
-    if (!consignee.address.line1 || !consignee.address.city || !consignee.address.state || !consignee.address.postCode) {
+    const consigneeValidation = validatePartyFields(consignee, 'consignee');
+    if (!consigneeValidation.valid) {
       return new Response(
-        JSON.stringify({ error: 'Missing required consignee address fields', required: ['address.line1', 'address.city', 'address.state', 'address.postCode'] }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (!consignee.contact.name || !consignee.contact.phone || !consignee.contact.email) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required consignee contact fields', required: ['contact.name', 'contact.phone', 'contact.email'] }),
+        JSON.stringify({ 
+          error: consigneeValidation.error,
+          missing: consigneeValidation.missing,
+          message: consigneeValidation.message
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
