@@ -55,21 +55,47 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = await req.json();
-    const { shipper, consignee, items } = body;
+    let { shipper, consignee, items } = body;
 
     if (!shipper || !consignee || !items || !Array.isArray(items) || items.length === 0) {
       return new Response(
         JSON.stringify({
           error: 'Missing required fields',
           required: {
-            shipper: { address: { line1: 'string', city: 'string', state: 'string', postCode: 'string', countryCode: 'string (optional, defaults to AU)' }, contact: { name: 'string', phone: 'string', email: 'string' } },
-            consignee: { address: { line1: 'string', city: 'string', state: 'string', postCode: 'string', countryCode: 'string (optional, defaults to AU)' }, contact: { name: 'string', phone: 'string', email: 'string' } },
+            shipper: 'Nested: { address: { line1, city, state, postCode, countryCode? }, contact: { name, phone, email } } OR Flat: { name, address, city, state?, postcode, phone, email, countryCode? }',
+            consignee: 'Nested: { address: { line1, city, state, postCode, countryCode? }, contact: { name, phone, email } } OR Flat: { name, address, city, state?, postcode, phone, email, countryCode? }',
             items: [{ weight: 'number', length: 'number', width: 'number', height: 'number', quantity: 'number (optional)', description: 'string (optional)' }]
           }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Normalize flat structure to nested structure for backward compatibility
+    const normalizeParty = (party: any) => {
+      // Check if already in nested format
+      if (party.address && typeof party.address === 'object' && party.contact) {
+        return party;
+      }
+      // Convert flat to nested
+      return {
+        address: {
+          line1: party.address,
+          city: party.city,
+          state: party.state,
+          postCode: party.postcode,
+          countryCode: party.countryCode,
+        },
+        contact: {
+          name: party.name,
+          phone: party.phone,
+          email: party.email,
+        },
+      };
+    };
+
+    shipper = normalizeParty(shipper);
+    consignee = normalizeParty(consignee);
 
     // Validate shipper address and contact
     if (!shipper.address || !shipper.contact) {
@@ -79,9 +105,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (!shipper.address.line1 || !shipper.address.city || !shipper.address.state || !shipper.address.postCode) {
+    if (!shipper.address.line1 || !shipper.address.city || !shipper.address.postCode) {
       return new Response(
-        JSON.stringify({ error: 'Missing required shipper address fields', required: ['line1', 'city', 'state', 'postCode'] }),
+        JSON.stringify({ error: 'Missing required shipper address fields', required: ['line1', 'city', 'postCode'] }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -101,9 +127,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    if (!consignee.address.line1 || !consignee.address.city || !consignee.address.state || !consignee.address.postCode) {
+    if (!consignee.address.line1 || !consignee.address.city || !consignee.address.postCode) {
       return new Response(
-        JSON.stringify({ error: 'Missing required consignee address fields', required: ['line1', 'city', 'state', 'postCode'] }),
+        JSON.stringify({ error: 'Missing required consignee address fields', required: ['line1', 'city', 'postCode'] }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -115,12 +141,27 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Validate state is present (required for Aramex)
+    if (!shipper.address.state) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required shipper state field', message: 'State is required for Australian addresses' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!consignee.address.state) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required consignee state field', message: 'State is required for Australian addresses' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Helper function to extract item dimensions
     const extractItemDimensions = (item: any) => ({
-      weight: item.weight?.value || item.weight,
-      length: item.dimensions?.length || item.length,
-      width: item.dimensions?.width || item.width,
-      height: item.dimensions?.height || item.height,
+      weight: item.weight?.value ?? item.weight,
+      length: item.dimensions?.length ?? item.length,
+      width: item.dimensions?.width ?? item.width,
+      height: item.dimensions?.height ?? item.height,
     });
 
     // Validate items have all required dimensions
@@ -183,10 +224,10 @@ Deno.serve(async (req: Request) => {
       items: items.map((item: any) => {
         const dims = extractItemDimensions(item);
         return {
-          weight: parseFloat(dims.weight as any),
-          length: parseFloat(dims.length as any),
-          width: parseFloat(dims.width as any),
-          height: parseFloat(dims.height as any),
+          weight: typeof dims.weight === 'number' ? dims.weight : parseFloat(String(dims.weight)),
+          length: typeof dims.length === 'number' ? dims.length : parseFloat(String(dims.length)),
+          width: typeof dims.width === 'number' ? dims.width : parseFloat(String(dims.width)),
+          height: typeof dims.height === 'number' ? dims.height : parseFloat(String(dims.height)),
           quantity: item.quantity ? parseInt(item.quantity) : 1,
           description: item.description,
         };
@@ -247,11 +288,11 @@ Deno.serve(async (req: Request) => {
         origin_postcode: shipper.address.postCode,
         destination_suburb: consignee.address.city,
         destination_postcode: consignee.address.postCode,
-        weight: parseFloat(firstItemDims.weight?.value ?? firstItemDims.weight),
+        weight: typeof firstItemDims.weight === 'number' ? firstItemDims.weight : parseFloat(String(firstItemDims.weight)),
         dimensions: { 
-          length: firstItemDims.length, 
-          width: firstItemDims.width, 
-          height: firstItemDims.height 
+          length: typeof firstItemDims.length === 'number' ? firstItemDims.length : parseFloat(String(firstItemDims.length)), 
+          width: typeof firstItemDims.width === 'number' ? firstItemDims.width : parseFloat(String(firstItemDims.width)), 
+          height: typeof firstItemDims.height === 'number' ? firstItemDims.height : parseFloat(String(firstItemDims.height))
         },
         carrier_response: quoteResult.rawResponse,
       })

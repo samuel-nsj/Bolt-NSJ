@@ -54,7 +54,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = await req.json();
-    const { quoteId, reference, shipper, consignee, items, serviceType } = body;
+    let { quoteId, reference, shipper, consignee, items, serviceType } = body;
 
     if (!quoteId || !shipper || !consignee || !items || !Array.isArray(items) || items.length === 0 || !serviceType) {
       return new Response(
@@ -63,8 +63,8 @@ Deno.serve(async (req: Request) => {
           required: {
             quoteId: 'string',
             reference: 'string (optional)',
-            shipper: { name: 'string', address: 'string', city: 'string', postcode: 'string', phone: 'string', email: 'string' },
-            consignee: { name: 'string', address: 'string', city: 'string', postcode: 'string', phone: 'string', email: 'string' },
+            shipper: 'Nested: { address: { line1, city, state, postCode, countryCode? }, contact: { name, phone, email } } OR Flat: { name, address, city, state?, postcode, phone, email, countryCode? }',
+            consignee: 'Nested: { address: { line1, city, state, postCode, countryCode? }, contact: { name, phone, email } } OR Flat: { name, address, city, state?, postcode, phone, email, countryCode? }',
             items: [{ weight: 'number', length: 'number', width: 'number', height: 'number', quantity: 'number (optional)', description: 'string (optional)' }],
             serviceType: 'string'
           }
@@ -72,6 +72,32 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Normalize flat structure to nested structure for backward compatibility
+    const normalizeParty = (party: any) => {
+      // Check if already in nested format
+      if (party.address && typeof party.address === 'object' && party.contact) {
+        return party;
+      }
+      // Convert flat to nested
+      return {
+        address: {
+          line1: party.address,
+          city: party.city,
+          state: party.state,
+          postCode: party.postcode,
+          countryCode: party.countryCode,
+        },
+        contact: {
+          name: party.name,
+          phone: party.phone,
+          email: party.email,
+        },
+      };
+    };
+
+    shipper = normalizeParty(shipper);
+    consignee = normalizeParty(consignee);
 
     const { data: quote } = await supabase
       .from('freight_quotes')
@@ -102,25 +128,31 @@ Deno.serve(async (req: Request) => {
 
     const aramexClient = new AramexConnectClient();
 
+    // Default countryCode to AU if not provided
+    const shipperCountryCode = shipper.address.countryCode || 'AU';
+    const consigneeCountryCode = consignee.address.countryCode || 'AU';
+
     const bookingResult = await aramexClient.createShipment({
       reference: reference || `BK-${Date.now()}`,
       shipper: {
-        name: shipper.name,
-        address: shipper.address,
-        city: shipper.city,
-        postcode: shipper.postcode,
-        phone: shipper.phone,
-        email: shipper.email,
-        countryCode: shipper.countryCode,
+        name: shipper.contact.name,
+        address: shipper.address.line1,
+        city: shipper.address.city,
+        state: shipper.address.state,
+        postcode: shipper.address.postCode,
+        phone: shipper.contact.phone,
+        email: shipper.contact.email,
+        countryCode: shipperCountryCode,
       },
       consignee: {
-        name: consignee.name,
-        address: consignee.address,
-        city: consignee.city,
-        postcode: consignee.postcode,
-        phone: consignee.phone,
-        email: consignee.email,
-        countryCode: consignee.countryCode,
+        name: consignee.contact.name,
+        address: consignee.address.line1,
+        city: consignee.address.city,
+        state: consignee.address.state,
+        postcode: consignee.address.postCode,
+        phone: consignee.contact.phone,
+        email: consignee.contact.email,
+        countryCode: consigneeCountryCode,
       },
       items: items.map((item: any) => ({
         weight: parseFloat(item.weight),
@@ -164,18 +196,18 @@ Deno.serve(async (req: Request) => {
         tracking_url: bookingResult.trackingUrl,
         estimated_price: quote.total_cost,
         reference_number: reference || `BK-${Date.now()}`,
-        pickup_name: shipper.name,
-        pickup_address: shipper.address,
-        pickup_suburb: shipper.city,
-        pickup_postcode: shipper.postcode,
-        pickup_phone: shipper.phone,
-        pickup_email: shipper.email,
-        delivery_name: consignee.name,
-        delivery_address: consignee.address,
-        delivery_suburb: consignee.city,
-        delivery_postcode: consignee.postcode,
-        delivery_phone: consignee.phone,
-        delivery_email: consignee.email,
+        pickup_name: shipper.contact.name,
+        pickup_address: shipper.address.line1,
+        pickup_suburb: shipper.address.city,
+        pickup_postcode: shipper.address.postCode,
+        pickup_phone: shipper.contact.phone,
+        pickup_email: shipper.contact.email,
+        delivery_name: consignee.contact.name,
+        delivery_address: consignee.address.line1,
+        delivery_suburb: consignee.address.city,
+        delivery_postcode: consignee.address.postCode,
+        delivery_phone: consignee.contact.phone,
+        delivery_email: consignee.contact.email,
         package_weight: items[0].weight,
         package_length: items[0].length,
         package_width: items[0].width,
